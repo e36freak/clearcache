@@ -100,7 +100,7 @@ done
 ((v)) && printf '%s\n' "checking '$cachedir' for packages to remove..."
 for pkg in "${!pkgs[@]}"; do
   ((pkgs[$pkg] > tokeep)) || continue
-  printf '%s\0' "$pkg"-* | sort -Vrz | {
+  {
     for ((i=0; i<tokeep; i++)); do
       read -d ''
     done
@@ -108,7 +108,7 @@ for pkg in "${!pkgs[@]}"; do
       ((toremove_c[$pkg]++, toremove_tot++))
       toremove_v[$pkg,${toremove_c[$pkg]}]=$f
     done
-  }
+  } < <(printf '%s\0' "$pkg"-[0-9]* | sort -Vrz)
 done
 
 ((toremove_tot)) || {
@@ -122,7 +122,7 @@ if ((list)); then
   printf '%s\0' "${!toremove_c}" | sort -z | while IFS= read -rd '' pkg; do
     printf '%s:\n' "$pkg"
     for ((i=1; i<=toremove_c[$pkg]; i++)); do
-      printf '  %s\n' "${toremove_v[$pkg,${toremove_c[$pkg]}]}"
+      printf '  %s\n' "${toremove_v[$pkg,$i]}"
     done
   done | less
 fi
@@ -135,7 +135,7 @@ read -p 'Continue? [Y/n] ' reply
 printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
   ((v)) && printf '%s\n' "removing old versions of '$pkg'..."
   for ((i=1; i<=toremove_c[$pkg]; i++)); do
-    f=${toremove_v[$pkg,${toremove_c[$pkg]}]}
+    f=${toremove_v[$pkg,$i]}
     if ((force)); then
       sudo rm -f "$f"
     else
