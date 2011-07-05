@@ -4,7 +4,7 @@ shopt -s nullglob extglob
 
 cachedir=/var/cache/pacman/pkg
 tokeep=1
-v=0
+v=0; list=0; force=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs ignore toremove_v toremove_c
 
 usage() {
