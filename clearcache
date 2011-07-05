@@ -2,6 +2,7 @@
 
 ################################################################################
 # Copywrite Daniel Mills <danielmills1@gmail.com>                              #
+# Thanks to Patrick Brisbin <pbrisbin@gmail.com>, for the .PKGINFO tip         #
 #                                                                              #
 # Permission is hereby granted, free of charge, to any person obtaining a copy #
 # of this software and associated documentation files (the "Software"), to     #
@@ -21,7 +22,8 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS #
 # IN THE SOFTWARE.                                                             #
 #                                                                              #
-# Requires bash4, libarchive, awk, sudo                                        #
+# Requires bash4, libarchive, awk                                              #
+# Optional deps: sudo (recommended)                                            #
 ################################################################################
 
 shopt -s nullglob extglob
@@ -57,6 +59,15 @@ usage: clearcache [options] [targets]
   removed. if no targets are specified, all packages except for thos
   specified to be ignored will be removed.
 EOF
+}
+
+runasroot() {
+  if sudo -v &>/dev/null && sudo -l "$@" &>/dev/null; then
+    sudo "$@"
+  else
+    printf '%s ' "Root"
+    su -c "$(printf '%q ' "$@")"
+  fi
 }
 
 while (($#)); do
@@ -195,13 +206,13 @@ read -p 'Continue? [Y/n] ' reply
 printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
   ((v)) && printf '%s\n' "removing old versions of '$pkg'..."
   for ((i=1; i<=toremove_c[$pkg]; i++)); do
-    f=${toremove_v[$pkg,$i]}
-    if ((force)); then
-      sudo rm -f "$f"
-    else
-      sudo rm "$f" || {
-        printf '%s\n' "could not remove '$f'" >&2
-      }
-    fi
+    f+=("${toremove_v[$pkg,$i]}")
   done
+  if ((force)); then
+    runasroot rm -f "${f[@]}"
+  else
+    runasroot rm "${f[@]}" || {
+      printf '%s\n' "could not remove '$f'" >&2
+    }
+  fi
 done
