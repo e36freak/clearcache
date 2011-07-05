@@ -136,7 +136,7 @@ done
 printf '%s\n' "Removing '$toremove_tot' packages from '$cachedir'"
 
 if ((list)); then
-  printf '%s\0' "${!toremove_c}" | sort -z | while IFS= read -rd '' pkg; do
+  printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
     printf '%s:\n' "$pkg"
     for ((i=1; i<=toremove_c[$pkg]; i++)); do
       printf '  %s\n' "${toremove_v[$pkg,$i]}"
