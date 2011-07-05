@@ -4,8 +4,8 @@ shopt -s nullglob extglob
 
 cachedir=/var/cache/pacman/pkg
 tokeep=1
-v=0; list=0; force=0; targets=(); options=(); toremove_tot=0
-declare -A pkgs ignore toremove_v toremove_c
+v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
+declare -A pkgs ignore toremove_v toremove_c installed
 
 usage() {
 cat <<'EOF'
@@ -20,6 +20,9 @@ usage: clearcache [options] [targets]
   -k, --keep <num>    specify number of old package files to keep
   -l, --list-targets  list targets to remove, using PAGER/less, before 
                       removing
+  -u, --uninstalled   remove all package files for packages that are not
+                      currently installed, while still keeping the
+                      specified number of old files for installed packages
   -v, --verbose       output more
 
   there MUST be a space between the option and its argument.
@@ -52,6 +55,7 @@ while [[ $1 = -?* ]]; do
     -v|--verbose) v=1; shift;;
     -f|--force) force=1; shift;;
     -l|--list-targets) list=1; shift;;
+    -u|--uninstalled) uninst=1; shift;;
     -k|--keep) 
       [[ -z $2 || $2 = *[!0-9]* ]] && {
         printf '%s\n' "invalid number for -k: '$2'" >&2
@@ -95,6 +99,13 @@ cd "$cachedir" || {
   exit 1
 }
 
+if ((uninst)); then
+  ((v)) && printf '%s\n' "obtaining list of currently installed packages..."
+  while read -r pkg; do
+    installed[$pkg]=1
+  done < <(pacman -Qq)
+fi
+
 ((v)) && printf '%s\n' "obtaining list of packages in '$cachedir'..."
 if ((${#targets[@]})); then
   for t in "${targets[@]}"; do
@@ -118,9 +129,11 @@ done
 for pkg in "${!pkgs[@]}"; do
   ((pkgs[$pkg] > tokeep)) || continue
   {
-    for ((i=0; i<tokeep; i++)); do
-      read -d ''
-    done
+    if ((installed[$pkg])); then
+      for ((i=0; i<tokeep; i++)); do
+        read -d ''
+      done
+    fi
     while IFS= read -rd '' f; do
       ((toremove_c[$pkg]++, toremove_tot++))
       toremove_v[$pkg,${toremove_c[$pkg]}]=$f
