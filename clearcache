@@ -29,7 +29,8 @@
 shopt -s nullglob extglob
 
 cachedir=/var/cache/pacman/pkg
-tokeep=1
+lock_file=${XDG_CACHE_HOME:-$HOME/.cache}/clearcache.lck
+tokeep=1; toremove=()
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
 
@@ -69,6 +70,12 @@ runasroot() {
     su -c "$(printf '%q ' "$@")"
   fi
 }
+
+{
+flock -n 9 || {
+  printf '%s\n' 'only one instance may be running at a time' \
+                "if you are sure that another instance isn't running,"
+                "remove '$lock_file'"
 
 while (($#)); do
   case $1 in
@@ -176,6 +183,7 @@ for pkg in "${!pkgs_c[@]}"; do
     while IFS= read -rd '' f; do
       ((toremove_c[$pkg]++, toremove_tot++))
       toremove_v[$pkg,${toremove_c[$pkg]}]=$f
+      toremove+=("$f")
     done
   } < <(for ((i=1; i<=pkgs_c[$pkg]; i++)); do
           printf '%s\0' "${pkgs_v[$pkg,$i]}"
@@ -203,16 +211,11 @@ declare -l reply
 read -p 'Continue? [Y/n] ' reply
 [[ $reply && $reply != y?(es) ]] && exit
 
-printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
-  ((v)) && printf '%s\n' "removing old versions of '$pkg'..."
-  for ((i=1; i<=toremove_c[$pkg]; i++)); do
-    f+=("${toremove_v[$pkg,$i]}")
-  done
-  if ((force)); then
-    runasroot rm -f "${f[@]}"
-  else
-    runasroot rm "${f[@]}" || {
-      printf '%s\n' "could not remove '$f'" >&2
-    }
-  fi
-done
+if ((force)); then
+  runasroot rm -f "${toremove[@]}"
+else
+  runasroot rm "${toremove[@]}" || {
+    printf '%s\n' "could not remove files" >&2
+  }
+fi
+} 9>"$lock_file"
