@@ -1,0 +1,4 @@
+"clearcache" is a simple script to selectively clear your pacman cache.
+
+It allows much more control, with the ability to ignore certain packages, or
+specify to keep N version package files, starting with the most recent.

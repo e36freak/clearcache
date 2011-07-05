@@ -1,0 +1,147 @@
+#!/bin/bash
+
+shopt -s nullglob extglob
+
+cachedir=/var/cache/pacman/pkg
+tokeep=1
+v=0
+declare -A pkgs ignore toremove_v toremove_c
+
+usage() {
+cat <<'EOF'
+usage: clearcache [options]
+
+ Options:
+  -h, --help          display this help menu
+  -f, --force         force removal of package files
+  -i, --ignore <pkg>  specify package(s) to ignore. this can be a comma
+                      separated list, or '-' reads a list from stdin, one
+                      per line. can be used more than once.
+  -k, --keep <num>    specify number of old package files to keep
+  -l, --list-targets  list targets to remove, using PAGER/less, before 
+                      removing
+  -v, --verbose       output more
+EOF
+}
+
+while (($#)); do
+  case $1 in
+    -[!-]?*)
+      for ((i=1; i<${#1}; i++)); do
+        options+=("${1:i:1}")
+      done
+      ;;
+    --?*=*) options+=("${1%%=*}" "${1#*=}");;
+    *) options+=("$1");;
+  esac
+  shift
+done
+set -- "${options[@]}"
+
+while [[ $1 = -?* ]]; do
+  case $1 in
+    -h|--help) usage; exit;;
+    -v|--verbose) v=1; shift;;
+    -f|--force) force=1; shift;;
+    -l|--list-targets) list=1; shift;;
+    -k|--keep) 
+      [[ -z $2 || $2 = *[!0-9]* ]] && {
+        printf '%s\n' "invalid number for -k: '$2'" >&2
+        exit 1
+      }
+      tokeep=$2
+      shift 2
+      ;;
+    -i|--ignore)
+      [[ $2 ]] || {
+        printf '%s\n' "must specify at least one package" >&2
+        exit 1
+      }
+      if [[ $2 = - ]]; then
+        if [[ -t 0 ]]; then
+          printf '%s\n' "stdin is a terminal, no list was read" >&2
+        else
+          while read -r pkg; do
+            ignore[$pkg]=1
+          done
+        fi
+      else
+        IFS=, read -ra newignore <<<"$2"
+        for pkg in "${newignore[@]}"; do
+          ignore[$pkg]=1
+        done
+      fi
+      shift 2
+      ;;
+      *)
+        printf '%s\n' "invalid option: '$1'" >&2
+        exit 1
+        ;;
+  esac
+done
+
+cd "$cachedir" || {
+  printf '%s\n' "could not cd to '$cachedir'" >&2
+  exit 1
+}
+
+((v)) && printf '%s\n' "obtaining list of packages in '$cachedir'..."
+for f in *.pkg.tar.?z; do
+  pkg=$f
+  while [[ $pkg = *-* ]]; do
+    case ${pkg##*-} in
+      *[![:alpha:]-]*) pkg=${pkg%-*};;
+      *) break;;
+    esac
+  done
+  ((! ignore[$pkg] && pkgs[$pkg]++))
+done
+
+((v)) && printf '%s\n' "checking '$cachedir' for packages to remove..."
+for pkg in "${!pkgs[@]}"; do
+  ((pkgs[$pkg] > tokeep)) || continue
+  printf '%s\0' "$pkg"-* | sort -Vrz | {
+    for ((i=0; i<tokeep; i++)); do
+      read -d ''
+    done
+    while IFS= read -rd '' f; do
+      ((toremove_c[$pkg]++, toremove_tot++))
+      toremove_v[$pkg,${toremove_c[$pkg]}]=$f
+    done
+  }
+done
+
+((toremove_tot)) || {
+  printf '%s\n' "There is nothing to do."
+  exit 1
+}
+
+printf '%s\n' "Removing '$toremove_tot' packages from '$cachedir'"
+
+if ((list)); then
+  printf '%s\0' "${!toremove_c}" | sort -z | while IFS= read -rd '' pkg; do
+    printf '%s:\n' "$pkg"
+    for ((i=1; i<=toremove_c[$pkg]; i++)); do
+      printf '  %s\n' "${toremove_v[$pkg,${toremove_c[$pkg]}]}"
+    done
+  done | less
+fi
+
+declare -l reply
+[[ -t 0 ]] || exec </dev/tty
+read -p 'Continue? [Y/n] ' reply
+[[ $reply && $reply != y?(es) ]] && exit
+
+printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
+  ((v)) && printf '%s\n' "removing old versions of '$pkg'..."
+  for ((i=1; i<=toremove_c[$pkg]; i++)); do
+    f=${toremove_v[$pkg,${toremove_c[$pkg]}]}
+    if ((force)); then
+      sudo rm -f "$f"
+    else
+      sudo rm "$f" || {
+        printf '%s\n' "could not remove '$f'" >&2
+      }
+    fi
+  done
+done
