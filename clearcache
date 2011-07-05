@@ -9,7 +9,7 @@ declare -A pkgs ignore toremove_v toremove_c
 
 usage() {
 cat <<'EOF'
-usage: clearcache [options]
+usage: clearcache [options] [targets]
 
  Options:
   -h, --help          display this help menu
@@ -21,6 +21,14 @@ usage: clearcache [options]
   -l, --list-targets  list targets to remove, using PAGER/less, before 
                       removing
   -v, --verbose       output more
+
+  there MUST be a space between the option and its argument.
+
+ Targets:
+  targets are package names, as you would specify them to pacman.
+  if targets are specified, only package files belonging to them will be
+  removed. if no targets are specified, all packages except for thos
+  specified to be ignored will be removed.
 EOF
 }
 
@@ -80,13 +88,22 @@ while [[ $1 = -?* ]]; do
   esac
 done
 
+targets=("$@")
+
 cd "$cachedir" || {
   printf '%s\n' "could not cd to '$cachedir'" >&2
   exit 1
 }
 
 ((v)) && printf '%s\n' "obtaining list of packages in '$cachedir'..."
-for f in *.pkg.tar.?z; do
+if ((${#targets[@]})); then
+  for t in "${targets[@]}"; do
+    files+=("$t"-[0-9]*.pkg.tar.?z)
+  done
+else
+  files=(*.pkg.tar.?z)
+fi
+for f in "${files[@]}"; do
   pkg=$f
   while [[ $pkg = *-* ]]; do
     case ${pkg##*-} in
@@ -124,7 +141,7 @@ if ((list)); then
     for ((i=1; i<=toremove_c[$pkg]; i++)); do
       printf '  %s\n' "${toremove_v[$pkg,$i]}"
     done
-  done | less
+  done | ${PAGER:-less}
 fi
 
 declare -l reply
