@@ -5,7 +5,7 @@ shopt -s nullglob extglob
 cachedir=/var/cache/pacman/pkg
 tokeep=1
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
-declare -A pkgs ignore toremove_v toremove_c installed
+declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
 
 usage() {
 cat <<'EOF'
@@ -107,6 +107,7 @@ if ((uninst)); then
 fi
 
 ((v)) && printf '%s\n' "obtaining list of packages in '$cachedir'..."
+
 if ((${#targets[@]})); then
   for t in "${targets[@]}"; do
     files+=("$t"-[0-9]*.pkg.tar.?z)
@@ -114,20 +115,24 @@ if ((${#targets[@]})); then
 else
   files=(*.pkg.tar.?z)
 fi
+
 for f in "${files[@]}"; do
-  pkg=$f
-  while [[ $pkg = *-* ]]; do
-    case ${pkg##*-} in
-      *[![:alpha:]-]*) pkg=${pkg%-*};;
-      *) break;;
-    esac
-  done
-  ((! ignore[$pkg] && pkgs[$pkg]++))
+  case $f in
+    *.gz) opts='-qxzf';;
+    *.xz) opts='-qxJf';;
+    *) printf '%s\n' "unsupported compression for '$f', skipping" >&2
+      continue;;
+  esac
+  read -r pkg < <(bsdtar -O "$opts" "$f" .PKGINFO |
+      awk -F '[[:blank:]]*=[[:blank:]]*' '$1 == "pkgname" {print $2}')
+  ((ignore[$pkg])) && continue
+  ((pkgs_c[$pkg]++)); pkgs_v[$pkg,${pkgs_c[$pkg]}]=$f
 done
 
-((v)) && printf '%s\n' "checking '$cachedir' for packages to remove..."
-for pkg in "${!pkgs[@]}"; do
-  ((pkgs[$pkg] > tokeep)) || continue
+((v)) && printf '%s\n' "determining which packages to remove..."
+for 
+for pkg in "${!pkgs_c[@]}"; do
+  ((pkgs_c[$pkg] > tokeep)) || continue
   {
     if ((installed[$pkg])); then
       for ((i=0; i<tokeep; i++)); do
@@ -138,7 +143,9 @@ for pkg in "${!pkgs[@]}"; do
       ((toremove_c[$pkg]++, toremove_tot++))
       toremove_v[$pkg,${toremove_c[$pkg]}]=$f
     done
-  } < <(printf '%s\0' "$pkg"-[0-9]* | sort -Vrz)
+  } < <(for ((i=1; i<pkgs_c[$pkg]; i++)); do
+          printf '%s\0' "${pkgs_v[$pkg,$i]}"
+        done | sort -Vrz)
 done
 
 ((toremove_tot)) || {
