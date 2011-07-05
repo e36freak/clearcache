@@ -130,7 +130,6 @@ for f in "${files[@]}"; do
 done
 
 ((v)) && printf '%s\n' "determining which packages to remove..."
-for 
 for pkg in "${!pkgs_c[@]}"; do
   ((pkgs_c[$pkg] > tokeep)) || continue
   {
@@ -143,7 +142,7 @@ for pkg in "${!pkgs_c[@]}"; do
       ((toremove_c[$pkg]++, toremove_tot++))
       toremove_v[$pkg,${toremove_c[$pkg]}]=$f
     done
-  } < <(for ((i=1; i<pkgs_c[$pkg]; i++)); do
+  } < <(for ((i=1; i<=pkgs_c[$pkg]; i++)); do
           printf '%s\0' "${pkgs_v[$pkg,$i]}"
         done | sort -Vrz)
 done
