@@ -71,6 +71,11 @@ runasroot() {
   fi
 }
 
+((UID == 0)) && {
+  printf '%s\n' 'do not run this as root, you will be prompted' >&2
+  exit 1
+}
+
 {
 flock -n 9 || {
   printf '%s\n' 'only one instance may be running at a time' \
