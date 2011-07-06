@@ -26,7 +26,8 @@
 # Optional deps: sudo (recommended)                                            #
 ################################################################################
 # TODO: option to parse pacman output and know which version of the package is #
-#       actually installed.                                                    #
+#         actually installed                                                   #
+#       multithreading!                                                        #
 ################################################################################
 
 shopt -s nullglob extglob
