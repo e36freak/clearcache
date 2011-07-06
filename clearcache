@@ -34,7 +34,7 @@ shopt -s nullglob extglob
 
 cachedir=/var/cache/pacman/pkg
 lock_file=${XDG_CACHE_HOME:-$HOME/.cache}/clearcache.lck
-tokeep=1; toremove=()
+tokeep=2; toremove=()
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
 
@@ -48,9 +48,13 @@ usage: clearcache [options] [targets]
   -i, --ignore <pkg>  specify package(s) to ignore. this can be a comma
                       separated list, or '-' reads a list from stdin, one
                       per line. can be used more than once.
-  -k, --keep <num>    specify number of old package files to keep
+  -k, --keep <num>    specify number of old package files to keep. by default,
+                      clearcache will keep the two latest versions.
   -l, --list-targets  list targets to remove, using PAGER/less, before 
                       removing
+  -t, --threads <num> use <num> threads. the default value is 10. using a
+                      large number can be very taxing, and is not recommended,
+                      but there is no hard limit.
   -u, --uninstalled   remove all package files for packages that are not
                       currently installed, while still keeping the
                       specified number of old files for installed packages
