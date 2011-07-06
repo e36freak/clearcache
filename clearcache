@@ -81,6 +81,8 @@ flock -n 9 || {
   printf '%s\n' 'only one instance may be running at a time' \
                 "if you are sure that another instance isn't running,"
                 "remove '$lock_file'"
+  exit 1
+}
 
 while (($#)); do
   case $1 in
