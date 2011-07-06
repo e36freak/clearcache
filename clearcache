@@ -182,7 +182,7 @@ done
 for pkg in "${!pkgs_c[@]}"; do
   ((pkgs_c[$pkg] > tokeep)) || continue
   {
-    if ((installed[$pkg])); then
+    if ((!uninst || installed[$pkg])); then
       for ((i=0; i<tokeep; i++)); do
         read -d ''
       done
