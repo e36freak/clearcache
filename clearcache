@@ -34,6 +34,7 @@ shopt -s nullglob extglob
 
 cachedir=/var/cache/pacman/pkg
 lock_file=${XDG_CACHE_HOME:-$HOME/.cache}/clearcache.lck
+fifo=/tmp/clearcache.fifo.$$
 tokeep=2; toremove=(); threads=10
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
@@ -80,12 +81,14 @@ runasroot() {
 }
 
 parse() {
-  case $f in
+  local opts
+  case $1 in
     *.gz) opts='-qxzf';;
     *.xz) opts='-qxJf';;
   esac
-  bsdtar -O "$opts" "$f" .PKGINFO |
-      awk -F '[[:blank:]]*=[[:blank:]]*' '$1 == "pkgname" {print $2; exit}' >&3
+  bsdtar -O "$opts" "$1" .PKGINFO |
+    awk -F '[[:blank:]]*=[[:blank:]]*' -v f="$1" '
+      $1 == "pkgname" {printf("%s\n%s\0", f, $2); exit}' >&3
 }
 
 ((UID == 0)) && {
@@ -192,10 +195,21 @@ else
   files=(*.pkg.tar.[gx]z)
 fi
 
-for f in "${files[@]}"; do
-  ((ignore[$pkg])) && continue
-  ((pkgs_c[$pkg]++)); pkgs_v[$pkg,${pkgs_c[$pkg]}]=$f
+# now the fun starts
+mkfifo "$fifo" || {
+  printf '%s\n' "couldn't create fifo '$fifo'" >&2
+  exit 1
+}
+exec 3<>"$fifo"
+for ((curfile=0; curfile<threads; curfile++)); do
+  [[ -e ${files[curfile]} ]] || break
+  parse "${files[curfile]}" &
 done
+while IFS=$'\n' read -rd '' file pkg; do
+  [[ -e ${files[curfile]} ]] && parse "${files[curfile++]}"
+  ((ignore[$pkg])) && continue
+  ((pkgs_c[$pkg]++)); pkgs_v[$pkg,${pkgs_c[$pkg]}]=$file
+done <&3
 
 ((v)) && printf '%s\n' "determining which packages to remove..."
 for pkg in "${!pkgs_c[@]}"; do
