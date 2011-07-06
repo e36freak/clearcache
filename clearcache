@@ -92,6 +92,7 @@ while (($#)); do
       done
       ;;
     --?*=*) options+=("${1%%=*}" "${1#*=}");;
+    --) options+=(--end);;
     *) options+=("$1");;
   esac
   shift
@@ -134,7 +135,7 @@ while [[ $1 = -?* ]]; do
       fi
       shift 2
       ;;
-      --) shift; break;;
+      --end) shift; break;;
       *)
         printf '%s\n' "invalid option: '$1'" >&2
         exit 1
