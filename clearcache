@@ -34,7 +34,7 @@ shopt -s nullglob extglob
 
 cachedir=/var/cache/pacman/pkg
 lock_file=${XDG_CACHE_HOME:-$HOME/.cache}/clearcache.lck
-tokeep=2; toremove=()
+tokeep=2; toremove=(); threads=10
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
 
@@ -79,6 +79,15 @@ runasroot() {
   fi
 }
 
+parse() {
+  case $f in
+    *.gz) opts='-qxzf';;
+    *.xz) opts='-qxJf';;
+  esac
+  bsdtar -O "$opts" "$f" .PKGINFO |
+      awk -F '[[:blank:]]*=[[:blank:]]*' '$1 == "pkgname" {print $2; exit}' >&3
+}
+
 ((UID == 0)) && {
   printf '%s\n' 'do not run this as root, you will be prompted' >&2
   exit 1
@@ -114,6 +123,14 @@ while [[ $1 = -?* ]]; do
     -f|--force) force=1; shift;;
     -l|--list-targets) list=1; shift;;
     -u|--uninstalled) uninst=1; shift;;
+    -t|--threads)
+      [[ -z $2 || $2 = *[!0-9]* ]] && {
+        printf '%s\n' "invalid number of threads: '$2'" >&2
+        exit 1
+      }
+      threads=$2
+      shift 2
+      ;;
     -k|--keep) 
       [[ -z $2 || $2 = *[!0-9]* ]] && {
         printf '%s\n' "invalid number for -k: '$2'" >&2
@@ -169,21 +186,13 @@ fi
 
 if ((${#targets[@]})); then
   for t in "${targets[@]}"; do
-    files+=("$t"-[0-9]*.pkg.tar.?z)
+    files+=("$t"-[0-9]*.pkg.tar.[gx]z)
   done
 else
-  files=(*.pkg.tar.?z)
+  files=(*.pkg.tar.[gx]z)
 fi
 
 for f in "${files[@]}"; do
-  case $f in
-    *.gz) opts='-qxzf';;
-    *.xz) opts='-qxJf';;
-    *) printf '%s\n' "unsupported compression for '$f', skipping" >&2
-      continue;;
-  esac
-  read -r pkg < <(bsdtar -O "$opts" "$f" .PKGINFO |
-      awk -F '[[:blank:]]*=[[:blank:]]*' '$1 == "pkgname" {print $2; exit}')
   ((ignore[$pkg])) && continue
   ((pkgs_c[$pkg]++)); pkgs_v[$pkg,${pkgs_c[$pkg]}]=$f
 done
