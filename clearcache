@@ -165,6 +165,7 @@ while [[ $1 = -?* ]]; do
           while read -r pkg; do
             ignore[$pkg]=1
           done
+          exec </dev/tty
         fi
       else
         IFS=, read -ra newignore <<<"$2"
