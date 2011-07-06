@@ -35,7 +35,7 @@ shopt -s nullglob extglob
 cachedir=/var/cache/pacman/pkg
 lock_file=${XDG_CACHE_HOME:-$HOME/.cache}/clearcache.lck
 fifo=/tmp/clearcache.fifo.$$
-tokeep=2; toremove=(); threads=10
+tokeep=2; toremove=(); threads=5; dry=0
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
 
@@ -45,6 +45,7 @@ usage: clearcache [options] [targets]
 
  Options:
   -h, --help          display this help menu
+  -d, --dry           dry run, simply list targets instead of removing
   -f, --force         force removal of package files
   -i, --ignore <pkg>  specify package(s) to ignore. this can be a comma
                       separated list, or '-' reads a list from stdin, one
@@ -52,7 +53,7 @@ usage: clearcache [options] [targets]
   -k, --keep <num>    specify number of old package files to keep. by default,
                       clearcache will keep the two latest versions.
   -l, --list-targets  list targets to remove, using PAGER/less, before 
-                      removing
+                      removing. may not be used with -d/--dry
   -t, --threads <num> use <num> threads. the default value is 5. using a
                       large number will not gain you much, and is not 
                       recommended, but there is no hard limit.
@@ -91,6 +92,15 @@ parse() {
       $1 == "pkgname" {printf("%s %s\n", f, $2); exit}' >&3
 }
 
+print_targets() {
+  printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
+    printf '%s:\n' "$pkg"
+    for ((i=1; i<=toremove_c[$pkg]; i++)); do
+      printf '  %s\n' "${toremove_v[$pkg,$i]}"
+    done
+  done
+}
+
 ((UID == 0)) && {
   printf '%s\n' 'do not run this as root, you will be prompted' >&2
   exit 1
@@ -123,6 +133,7 @@ while [[ $1 = -?* ]]; do
   case $1 in
     -h|--help) usage; exit;;
     -v|--verbose) v=1; shift;;
+    -d|--dry) dry=1; shift;;
     -f|--force) force=1; shift;;
     -l|--list-targets) list=1; shift;;
     -u|--uninstalled) uninst=1; shift;;
@@ -170,6 +181,11 @@ while [[ $1 = -?* ]]; do
         ;;
   esac
 done
+
+((dry && list)) && {
+  printf '%s\n' 'may not use both -d/--dry and -l/--list' >&2
+  exit 1
+}
 
 targets=("$@")
 
@@ -239,19 +255,15 @@ done
   exit 1
 }
 
-printf '%s\n' "Removing '$toremove_tot' packages from '$cachedir'"
-
+((dry)) || printf '%s\n' "Removing '$toremove_tot' packages from '$cachedir'"
 if ((list)); then
-  printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
-    printf '%s:\n' "$pkg"
-    for ((i=1; i<=toremove_c[$pkg]; i++)); do
-      printf '  %s\n' "${toremove_v[$pkg,$i]}"
-    done
-  done | ${PAGER:-less}
+  print_targets | ${PAGER:-less} 
+elif ((dry)); then
+  print_targets
+  exit
 fi
 
 declare -l reply
-[[ -t 0 ]] || exec </dev/tty
 read -p 'Continue? [Y/n] ' reply >/dev/tty
 [[ $reply && $reply != y?(es) ]] && exit
 
