@@ -53,9 +53,9 @@ usage: clearcache [options] [targets]
                       clearcache will keep the two latest versions.
   -l, --list-targets  list targets to remove, using PAGER/less, before 
                       removing
-  -t, --threads <num> use <num> threads. the default value is 10. using a
-                      large number can be very taxing, and is not recommended,
-                      but there is no hard limit.
+  -t, --threads <num> use <num> threads. the default value is 5. using a
+                      large number will not gain you much, and is not 
+                      recommended, but there is no hard limit.
   -u, --uninstalled   remove all package files for packages that are not
                       currently installed, while still keeping the
                       specified number of old files for installed packages
@@ -88,7 +88,7 @@ parse() {
   esac
   bsdtar -O "$opts" "$1" .PKGINFO |
     awk -F '[[:blank:]]*=[[:blank:]]*' -v f="$1" '
-      $1 == "pkgname" {printf("%s\n%s\0", f, $2); exit}' >&3
+      $1 == "pkgname" {printf("%s %s\n", f, $2); exit}' >&3
 }
 
 ((UID == 0)) && {
@@ -127,7 +127,7 @@ while [[ $1 = -?* ]]; do
     -l|--list-targets) list=1; shift;;
     -u|--uninstalled) uninst=1; shift;;
     -t|--threads)
-      [[ -z $2 || $2 = *[!0-9]* ]] && {
+      [[ $2 != *[!0-9]* ]] && (($2 > 0)) || {
         printf '%s\n' "invalid number of threads: '$2'" >&2
         exit 1
       }
@@ -202,14 +202,16 @@ mkfifo "$fifo" || {
 }
 exec 3<>"$fifo"
 for ((curfile=0; curfile<threads; curfile++)); do
-  [[ -e ${files[curfile]} ]] || break
-  parse "${files[curfile]}" &
+  ((curfile < totfiles)) && parse "${files[curfile]}" &
 done
-while IFS=$'\n' read -rd '' file pkg; do
-  [[ -e ${files[curfile]} ]] && parse "${files[curfile++]}"
+while read -r file pkg; do
+  ((curfile < totfiles)) && parse "${files[curfile]}" &
+  ((curfiles++))
   ((ignore[$pkg])) && continue
   ((pkgs_c[$pkg]++)); pkgs_v[$pkg,${pkgs_c[$pkg]}]=$file
+  ((++finished == totfiles)) && break
 done <&3
+exec 3>&-
 
 ((v)) && printf '%s\n' "determining which packages to remove..."
 for pkg in "${!pkgs_c[@]}"; do
