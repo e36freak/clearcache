@@ -175,7 +175,7 @@ for f in "${files[@]}"; do
       continue;;
   esac
   read -r pkg < <(bsdtar -O "$opts" "$f" .PKGINFO |
-      awk -F '[[:blank:]]*=[[:blank:]]*' '$1 == "pkgname" {print $2}')
+      awk -F '[[:blank:]]*=[[:blank:]]*' '$1 == "pkgname" {print $2; exit}')
   ((ignore[$pkg])) && continue
   ((pkgs_c[$pkg]++)); pkgs_v[$pkg,${pkgs_c[$pkg]}]=$f
 done
