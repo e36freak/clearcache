@@ -215,7 +215,7 @@ fi
 
 declare -l reply
 [[ -t 0 ]] || exec </dev/tty
-read -p 'Continue? [Y/n] ' reply
+read -p 'Continue? [Y/n] ' reply >/dev/tty
 [[ $reply && $reply != y?(es) ]] && exit
 
 if ((force)); then
