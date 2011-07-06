@@ -27,7 +27,6 @@
 ################################################################################
 # TODO: option to parse pacman output and know which version of the package is #
 #         actually installed                                                   #
-#       multithreading!                                                        #
 ################################################################################
 
 shopt -s nullglob extglob
