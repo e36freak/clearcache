@@ -227,13 +227,11 @@ totfiles=${#files[@]}
 for ((curfile=0; curfile<threads; curfile++)); do
   ((curfile < totfiles)) && parse "${files[curfile]}" &
 done
-finished=0
 while read -r file pkg; do
   ((curfile < totfiles)) && parse "${files[curfile]}" &
-  ((curfile++))
   ((ignore[$pkg])) && continue
   ((pkgs_c[$pkg]++)); pkgs_v[$pkg,${pkgs_c[$pkg]}]=$file
-  ((++finished == totfiles)) && break
+  ((++curfile == totfiles)) && break
 done <&3
 exec 3>&-
 
