@@ -34,7 +34,7 @@ shopt -s nullglob extglob
 cachedir=/var/cache/pacman/pkg
 lock_file=${XDG_CACHE_HOME:-$HOME/.cache}/clearcache.lck
 fifo=/tmp/clearcache.fifo.$$
-tokeep=2; toremove=(); threads=5; dry=0
+tokeep=2; toremove=(); threads=5; dry=0; quiet=0
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
 
@@ -45,6 +45,7 @@ usage: clearcache [options] [targets]
  Options:
   -h, --help          display this help menu
   -d, --dry           dry run, simply list targets instead of removing
+  -q, --quiet         only prints filenames for -d/--dry or -l/--list-targets
   -f, --force         force removal of package files
   -i, --ignore <pkg>  specify package(s) to ignore. this can be a comma
                       separated list, or '-' reads a list from stdin, one
@@ -93,9 +94,13 @@ parse() {
 
 print_targets() {
   printf '%s\0' "${!toremove_c[@]}" | sort -z | while IFS= read -rd '' pkg; do
-    printf '%s:\n' "$pkg"
+    ((!quiet)) && printf '%s:\n' "$pkg"
     for ((i=1; i<=toremove_c[$pkg]; i++)); do
-      printf '  %s\n' "${toremove_v[$pkg,$i]}"
+      if ((quiet)); then
+        printf '%s\n' "${toremove_v[$pkg,$i]}"
+      else
+        printf '  %s\n' "${toremove_v[$pkg,$i]}"
+      fi
     done
   done
 }
@@ -136,6 +141,7 @@ while [[ $1 = -?* ]]; do
     -f|--force) force=1; shift;;
     -l|--list-targets) list=1; shift;;
     -u|--uninstalled) uninst=1; shift;;
+    -q|--quiet) quiet=1; shift;;
     -t|--threads)
       [[ $2 != *[!0-9]* ]] && (($2 > 0)) || {
         printf '%s\n' "invalid number of threads: '$2'" >&2
