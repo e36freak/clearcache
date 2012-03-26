@@ -1,4 +1,30 @@
-"clearcache" is a simple script to selectively clear your pacman cache.
+usage: clearcache [OPTIONS] [TARGET(S)]
 
-It allows much more control, with the ability to ignore certain packages, or
-specify to keep N version package files, starting with the most recent.
+Selectively clears the pacman cache in /var/cache/pacman/pkg/. Keeps the two
+most recent versions of each package.
+
+ Options:
+  -h, --help          display this help menu
+  -d, --dry           dry run, simply list targets instead of removing
+  -q, --quiet         only prints filenames for -d/--dry or -l/--list-targets
+  -f, --force         force removal of package files
+  -i, --ignore PKG    specify package(s) to ignore. this can be a comma
+                      separated list, or '-' reads a list from stdin, one
+                      per line. can be used more than once.
+  -k, --keep NUM      specify number of old package files to keep. by default,
+                      clearcache will keep the two most recent versions.
+  -l, --list-targets  list targets to remove, using PAGER/less, before 
+                      removing. may not be used with -d/--dry
+  -t, --threads NUM   use NUM threads. the default value is 5. using a
+                      large number will not gain you much, and is not 
+                      recommended, but there is no hard limit.
+  -u, --uninstalled   remove all package files for packages that are not
+                      currently installed, while still keeping the
+                      specified number of old files for installed packages
+  -v, --verbose       output more
+
+ Targets:
+  Targets are package names, as you would specify them to pacman.
+  If targets are specified, only package files belonging to them will be
+  removed. If no targets are specified, all packages except for those
+  specified to be ignored will be removed.
