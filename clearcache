@@ -167,7 +167,7 @@ unset options
 
 while [[ $1 = -?* ]]; do
   case $1 in
-    -h|--help) usage; exit;;
+    -h|--help) usage >&2; exit 0;;
     -v|--verbose) v=1; shift;;
     -d|--dry) dry=1; shift;;
     -f|--force) force=1; shift;;
