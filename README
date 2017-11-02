@@ -15,9 +15,10 @@ most recent versions of each package.
                       clearcache will keep the two most recent versions.
   -l, --list-targets  list targets to remove, using PAGER/less, before 
                       removing. may not be used with -d/--dry
-  -t, --threads NUM   use NUM threads. the default value is 5. using a
-                      large number will not gain you much, and is not 
-                      recommended, but there is no hard limit.
+  -t, --threads NUM   use NUM threads. the default value is the number of
+                      cores your CPU has. Using a large number will not gain
+                      you much, and is not recommended, but there is no hard
+                      limit.
   -u, --uninstalled   remove all package files for packages that are not
                       currently installed, while still keeping the
                       specified number of old files for installed packages

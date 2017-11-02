@@ -27,6 +27,7 @@
 ################################################################################
 # TODO: option to parse pacman output and know which version of the package is #
 #         actually installed                                                   #
+#       add option to move packages to <dir> instead of removing them          #
 ################################################################################
 
 shopt -s nullglob extglob
@@ -34,7 +35,7 @@ shopt -s nullglob extglob
 cachedir=/var/cache/pacman/pkg
 lock_file=${XDG_CACHE_HOME:-$HOME/.cache}/clearcache.lck
 fifo=/tmp/clearcache.fifo.$$
-tokeep=2; toremove=(); threads=5; dry=0; quiet=0
+tokeep=2; toremove=(); threads=1; exthreads=0; dry=0; quiet=0
 v=0; list=0; force=0; uninst=0; targets=(); options=(); toremove_tot=0
 declare -A pkgs_v pkgs_c toremove_v toremove_c installed ignore 
 
@@ -57,9 +58,10 @@ most recent versions of each package.
                       clearcache will keep the two most recent versions.
   -l, --list-targets  list targets to remove, using PAGER/less, before 
                       removing. may not be used with -d/--dry
-  -t, --threads NUM   use NUM threads. the default value is 5. using a
-                      large number will not gain you much, and is not 
-                      recommended, but there is no hard limit.
+  -t, --threads NUM   use NUM threads. the default value is the number of
+                      cores your CPU has. Using a large number will not gain
+                      you much, and is not recommended, but there is no hard
+                      limit.
   -u, --uninstalled   remove all package files for packages that are not
                       currently installed, while still keeping the
                       specified number of old files for installed packages
@@ -186,6 +188,7 @@ while [[ $1 = -?* ]]; do
       fi
 
       threads=$2
+      exthreads=1
       shift
       ;;
     -k|--keep) 
@@ -268,6 +271,11 @@ fi
 if ! mkfifo "$fifo"; then
   printf '%s\n' "couldn't create fifo '$fifo'" >&2
   exit 1
+fi
+
+# determine number of threads if not explicitly defined
+if ((!exthreads)); then
+  threads=$(awk '$1 == "processor" {p++} END {print p}' /proc/cpuinfo)
 fi
 
 exec 3<>"$fifo"
